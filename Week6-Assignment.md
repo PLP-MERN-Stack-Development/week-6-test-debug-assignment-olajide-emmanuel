@@ -1,89 +1,254 @@
-# 🧪 Week 6: Testing and Debugging – Ensuring MERN App Reliability
+// ============================================================
+// WEEK 6: TESTING AND DEBUGGING IN MERN APPLICATIONS
+// PROJECT: BUG TRACKER (Single Code Sheet)
+// ============================================================
 
-## 🚀 Objective
-Implement comprehensive testing strategies for a MERN stack application, including unit testing, integration testing, and end-to-end testing, while also learning debugging techniques to identify and fix common issues.
+// ============================================================
+// 📁 BACKEND SETUP (Express + MongoDB + Mongoose)
+// ============================================================
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const app = express();
+const PORT = 5000;
 
-## 📂 Tasks
+// Middleware
+app.use(cors());
+app.use(express.json());
 
-### Task 1: Setting Up Testing Environment
-- Configure Jest as the testing framework for both client and server
-- Set up testing utilities for React components (React Testing Library)
-- Configure Supertest for API endpoint testing
-- Create a separate test database for integration tests
-- Implement test scripts in package.json for running different types of tests
+// MongoDB Connection
+mongoose
+  .connect('mongodb://localhost:27017/mern-bug-tracker')
+  .then(() => console.log('MongoDB connected'))
+  .catch((err) => console.error('Mongo error', err));
 
-### Task 2: Unit Testing
-- Write unit tests for utility functions in both client and server
-- Test React components in isolation using mocks for dependencies
-- Implement tests for Redux reducers and actions (if applicable)
-- Create tests for custom hooks in React
-- Test Express middleware functions
-- Achieve at least 70% code coverage for unit tests
+// Bug Schema
+const bugSchema = new mongoose.Schema({
+  title: String,
+  description: String,
+  status: { type: String, default: 'open' },
+});
 
-### Task 3: Integration Testing
-- Write tests for API endpoints using Supertest
-- Test database operations with a test database
-- Implement integration tests for React components that interact with APIs
-- Test authentication flows
-- Create tests for form submissions and data validation
+const Bug = mongoose.model('Bug', bugSchema);
 
-### Task 4: End-to-End Testing
-- Set up Cypress or Playwright for end-to-end testing
-- Create tests for critical user flows (e.g., registration, login, CRUD operations)
-- Test navigation and routing
-- Implement tests for error handling and edge cases
-- Create visual regression tests for UI components
+// ============================================================
+// 📁 API ROUTES (CRUD)
+// ============================================================
+app.post('/api/bugs', async (req, res, next) => {
+  try {
+    const bug = new Bug(req.body);
+    await bug.save();
+    res.status(201).json(bug);
+  } catch (err) {
+    next(err);
+  }
+});
 
-### Task 5: Debugging Techniques
-- Use logging strategies for server-side debugging
-- Implement error boundaries in React
-- Use browser developer tools for client-side debugging
-- Create a global error handler for the Express server
-- Implement performance monitoring and optimization
+app.get('/api/bugs', async (req, res, next) => {
+  try {
+    const bugs = await Bug.find();
+    res.json(bugs);
+  } catch (err) {
+    next(err);
+  }
+});
 
-## 🧪 Expected Outcome
-- A comprehensive test suite for a MERN stack application
-- Well-documented testing strategies and methodologies
-- High code coverage for critical application features
-- Improved application reliability and stability
-- Implementation of debugging tools and techniques
+app.put('/api/bugs/:id', async (req, res, next) => {
+  try {
+    const bug = await Bug.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json(bug);
+  } catch (err) {
+    next(err);
+  }
+});
 
-## 🛠️ Setup
-1. Clone the starter code repository
-2. Install dependencies for both client and server:
-   ```
-   # In the root directory
-   npm run install-all
-   ```
-3. Set up the test database:
-   ```
-   # In the server directory
-   npm run setup-test-db
-   ```
-4. Run the tests:
-   ```
-   # Run all tests
-   npm test
-   
-   # Run only unit tests
-   npm run test:unit
-   
-   # Run only integration tests
-   npm run test:integration
-   
-   # Run only end-to-end tests
-   npm run test:e2e
-   ```
+app.delete('/api/bugs/:id', async (req, res, next) => {
+  try {
+    await Bug.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Bug deleted' });
+  } catch (err) {
+    next(err);
+  }
+});
 
-## ✅ Submission Instructions
-1. Accept the GitHub Classroom assignment invitation
-2. Clone your personal repository that was created by GitHub Classroom
-3. Complete all the tasks in the assignment
-4. Commit and push your code regularly to show progress
-5. Include in your repository:
-   - Complete test files for unit, integration, and end-to-end testing
-   - Documentation of your testing strategy
-   - Screenshots of test coverage reports
-   - Examples of debugging techniques implemented
-6. Your submission will be automatically graded based on the criteria in the autograding configuration
-7. The instructor will review your submission after the autograding is complete 
+// ============================================================
+// 📁 ERROR HANDLING MIDDLEWARE
+// ============================================================
+app.use((err, req, res, next) => {
+  console.error('🔥 Error:', err.message);
+  res.status(500).json({ error: 'Something went wrong' });
+});
+
+// ============================================================
+// 📁 START SERVER
+// ============================================================
+app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+
+// ============================================================
+// 📁 FRONTEND (REACT APP - App.jsx)
+// ============================================================
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
+function App() {
+  const [bugs, setBugs] = useState([]);
+  const [form, setForm] = useState({ title: '', description: '' });
+  const [error, setError] = useState('');
+
+  const loadBugs = async () => {
+    try {
+      const res = await axios.get('http://localhost:5000/api/bugs');
+      setBugs(res.data);
+    } catch (e) {
+      setError('Failed to load bugs');
+    }
+  };
+
+  useEffect(() => {
+    loadBugs();
+  }, []);
+
+  const submitBug = async () => {
+    try {
+      await axios.post('http://localhost:5000/api/bugs', form);
+      setForm({ title: '', description: '' });
+      loadBugs();
+    } catch (e) {
+      setError('Submission failed');
+    }
+  };
+
+  const updateStatus = async (id, status) => {
+    try {
+      await axios.put(`http://localhost:5000/api/bugs/${id}`, { status });
+      loadBugs();
+    } catch (e) {
+      setError('Update failed');
+    }
+  };
+
+  const deleteBug = async (id) => {
+    try {
+      await axios.delete(`http://localhost:5000/api/bugs/${id}`);
+      loadBugs();
+    } catch (e) {
+      setError('Delete failed');
+    }
+  };
+
+  return (
+    <div>
+      <h1>🐞 Bug Tracker</h1>
+      {error && <p style={{ color: 'red' }}>{error}</p>}
+      <input
+        placeholder="Bug Title"
+        value={form.title}
+        onChange={(e) => setForm({ ...form, title: e.target.value })}
+      />
+      <input
+        placeholder="Description"
+        value={form.description}
+        onChange={(e) => setForm({ ...form, description: e.target.value })}
+      />
+      <button onClick={submitBug}>Submit</button>
+      <ul>
+        {bugs.map((bug) => (
+          <li key={bug._id}>
+            <b>{bug.title}</b>: {bug.description} — {bug.status}
+            <button onClick={() => updateStatus(bug._id, 'in-progress')}>In Progress</button>
+            <button onClick={() => updateStatus(bug._id, 'resolved')}>Resolved</button>
+            <button onClick={() => deleteBug(bug._id)}>Delete</button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default App;
+
+// ============================================================
+// 📁 TESTING (USING JEST & SUPERTEST - backend)
+// ============================================================
+
+/*
+// Install: npm install --save-dev jest supertest
+// In package.json add: "test": "jest"
+*/
+
+const request = require('supertest');
+const expressApp = require('./index'); // if split into file
+const Bug = require('./models/Bug'); // if split
+
+describe('Bug API', () => {
+  it('should create a new bug', async () => {
+    const res = await request(expressApp)
+      .post('/api/bugs')
+      .send({ title: 'Bug 1', description: 'Something is broken' });
+    expect(res.statusCode).toEqual(201);
+    expect(res.body.title).toBe('Bug 1');
+  });
+});
+
+// ============================================================
+// 📁 FRONTEND TESTING (React Testing Library)
+// ============================================================
+
+/*
+// Install: npm install --save-dev @testing-library/react jest
+*/
+
+import { render, fireEvent, screen } from '@testing-library/react';
+import App from './App';
+
+test('renders bug tracker title', () => {
+  render(<App />);
+  const linkElement = screen.getByText(/Bug Tracker/i);
+  expect(linkElement).toBeInTheDocument();
+});
+
+// ============================================================
+// 📁 DEBUGGING (INTENTIONAL BUG + TOOLS)
+// ============================================================
+
+// INTENTIONAL BUG: Misspelled 'status' in API
+// await Bug.findByIdAndUpdate(req.params.id, { statuss: req.body.status })
+
+// DEBUGGING TOOLS:
+// - console.log(req.body) // Track API input
+// - Chrome DevTools → Network tab to inspect requests
+// - node --inspect index.js → for Node.js debugger
+// - React Developer Tools for component state
+// - Add <ErrorBoundary> in React for catching crashes
+
+// Example Error Boundary:
+class ErrorBoundary extends React.Component {
+  state = { hasError: false };
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error, info) {
+    console.log('Boundary caught:', error);
+  }
+  render() {
+    if (this.state.hasError) return <h2>Something went wrong.</h2>;
+    return this.props.children;
+  }
+}
+
+// Wrap <App /> in ErrorBoundary:
+// <ErrorBoundary><App /></ErrorBoundary>
+
+// ============================================================
+// 📁 README.md CONTENT (for your GitHub)
+// ============================================================
+
+/*
+
+# MERN Bug Tracker 🐞
+
+## Installation
+```bash
+git clone https://github.com/yourname/mern-bug-tracker
+cd mern-bug-tracker
+npm install && cd client && npm install
